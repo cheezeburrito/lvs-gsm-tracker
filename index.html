@@ -665,9 +665,9 @@ function refreshShipUI(){
     document.getElementById("s-found-l").textContent="On hand / "+c.manifest.length;
     document.getElementById("s-pull-l").textContent="Exam parcels located / "+exam;
     document.getElementById("s-hold-l").textContent="Not released, located / "+(exam+holdTot);
-    document.getElementById("app").style.display="";
+    document.getElementById("app").style.display=""; lockScanFocus();
     document.getElementById("scan").value=c.rawScan||"";
-    setTimeout(()=>{const ls=document.getElementById("livescan"); if(ls)ls.focus();},50);
+    setTimeout(()=>refocusScan(),100);
     if(supa&&syncOnline) subscribeRealtime(c.id);
   }else{
     document.getElementById("shiplabel").textContent="No shipment loaded";
@@ -705,9 +705,36 @@ function liveScanKey(ev){
   else if(e.exam){ flashLast("⚠ PULL — "+e.tracking+" — Carton "+e.carton,"pull"); }
   else if(e.hold){ flashLast("⛔ NOT RELEASED ("+(e.status||"no status")+") — Carton "+e.carton,"hold"); }
   else { flashLast("✓ "+e.tracking+" — Carton "+e.carton,"ok"); }
-  inp.focus();
+  refocusScan();
 }
 function flashLast(msg,cls){ document.getElementById("lastscan").innerHTML='<span class="'+cls+'">'+msg+'</span>'; }
+
+/* ── Keep live scan input focused at all times when app is visible ── */
+let _scanLocked = false;
+function refocusScan(){
+  const inp = document.getElementById("livescan");
+  if(!inp) return;
+  // small delay lets the DOM settle after run() re-render
+  setTimeout(()=>{ inp.focus(); inp.setSelectionRange(0,0); }, 80);
+}
+function lockScanFocus(){
+  const inp = document.getElementById("livescan");
+  if(!inp || _scanLocked) return;
+  _scanLocked = true;
+  // re-focus whenever anything else steals it, as long as app is loaded
+  inp.addEventListener("blur", ()=>{
+    if(document.getElementById("app").style.display !== "none"){
+      // don't steal focus from modals or buttons the user deliberately tapped
+      setTimeout(()=>{
+        const active = document.activeElement;
+        const tag = active ? active.tagName.toLowerCase() : "";
+        const isModal = active && active.closest && active.closest(".modal");
+        const isInteractive = ["button","select","input","textarea"].includes(tag) && active.id !== "livescan";
+        if(!isModal && !isInteractive) inp.focus();
+      }, 150);
+    }
+  });
+}
 
 /* ---------- modals & settings ---------- */
 function openHelp(){ document.getElementById("helpmodal").classList.add("show"); }
